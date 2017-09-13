@@ -2,6 +2,8 @@ package ua.rd.ioc;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.*;
 
 public class ApplicationContext implements Context {
@@ -11,6 +13,11 @@ public class ApplicationContext implements Context {
 
     public ApplicationContext(Config config) {
         beanDefinitions = Arrays.asList(config.beanDefinitions());
+        init(beanDefinitions);
+    }
+
+    private void init(List<BeanDefinition> beanDefinitions) {
+        beanDefinitions.forEach(b -> getBean(b.getBeanName()));
     }
 
     public ApplicationContext() {
@@ -20,18 +27,52 @@ public class ApplicationContext implements Context {
     public Object getBean(String beanName) {
         BeanDefinition beanDefinition = getBeanDefinitionByName(beanName);
         Object bean = beans.get(beanName);
-        if(bean == null) {
+        if(bean != null) {
+            return bean;
+        }
             bean = createNewBean(beanDefinition);
             if (!beanDefinition.isPrototype()) {
                 beans.put(beanName, bean);
             }
-        }
         return bean;
     }
 
     private Object createNewBean(BeanDefinition beanDefinition) {
         Object bean = createNewBeanInstance(beanDefinition);
+        callPostConstructAnnotatedMethod(bean);
+        callInitMethod(bean);
+        bean = createBenchmarkProxy(bean);
         return bean;
+    }
+
+    private Object createBenchmarkProxy(Object bean) {
+        return Proxy.newProxyInstance();
+    }
+
+    private void callPostConstructAnnotatedMethod(Object bean) {
+        Method [] methods = bean.getClass().getMethods();
+        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(MyPostConstruct.class))
+                .forEach(m -> {
+                    try {
+                        m.invoke(bean);
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
+                    } catch (InvocationTargetException e) {
+                        e.printStackTrace();
+                    }
+                });
+    }
+
+    private void callInitMethod(Object bean) {
+        try {
+            Method initMethod = bean.getClass().getMethod("init");
+            if(initMethod != null) {
+                initMethod.invoke(bean);
+            }
+        } catch (IllegalAccessException | InvocationTargetException e) {
+
+        } catch (NoSuchMethodException e) {
+        }
     }
 
     private BeanDefinition getBeanDefinitionByName(String beanName) {
@@ -64,7 +105,6 @@ public class ApplicationContext implements Context {
             parameterName = Character.toLowerCase(parameterName.charAt(0)) + parameterName.substring(1);
             parameters.add(getBean(parameterName));
         }
-
         Object newBean = null;
         try {
             newBean = constructor.newInstance(parameters.toArray());

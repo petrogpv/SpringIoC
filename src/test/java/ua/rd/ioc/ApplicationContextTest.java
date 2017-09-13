@@ -34,8 +34,10 @@ public class ApplicationContextTest {
     public void getBeanDefinitionNamesWithOneBeanDefinition() throws Exception {
         String beanName = "FirstBean";
         Map<String, Map<String, Object>> beanDescriptions = new HashMap<String, Map<String, Object>>(){{
-                put(beanName, new HashMap<>());
-            }};
+            put(beanName, new HashMap<String, Object>(){{
+                put("type",Object.class);
+            }});
+        }};
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
@@ -50,8 +52,12 @@ public class ApplicationContextTest {
         String beanName1 = "FirstBean";
         String beanName2 = "SecondBean";
         Map<String, Map<String, Object>> beanDescriptions = new HashMap<String, Map<String, Object>>(){{
-                put(beanName1, new HashMap<>());
-                put(beanName2, new HashMap<>());
+                put(beanName1, new HashMap<String, Object>(){{
+                    put("type",Object.class);
+                }});
+                put(beanName2, new HashMap<String, Object>(){{
+                    put("type",Object.class);
+                }});
             }};
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
@@ -269,8 +275,62 @@ public class ApplicationContextTest {
         assertNotNull(bean);
         assertNotSame(bean.testBean1, bean.testBean2);
     }
+    @Test
+    public void getBeanCallInitMethod() throws Exception {
+        Map<String, Map<String, Object>> beanDescriptions =
+                new HashMap<String, Map<String, Object>>() {{
+                    put("testBean",
+                            new HashMap<String, Object>() {{
+                                put("type", TestBean.class);
+                                put("isPrototype", true);
+                            }}
+                    );
+                }};
+
+        Config config = new JavaMapConfig(beanDescriptions);
+        Context context = new ApplicationContext(config);
+
+        TestBean bean
+                = (TestBean) context.getBean("testBean");
+
+        assertEquals("initialized" , bean.initValue);
+    }
+    @Test
+    public void getBeanPostConstructAnnotatedMethod() throws Exception {
+        Map<String, Map<String, Object>> beanDescriptions =
+                new HashMap<String, Map<String, Object>>() {{
+                    put("testBean",
+                            new HashMap<String, Object>() {{
+                                put("type", TestBean.class);
+                                put("isPrototype", true);
+                            }}
+                    );
+                }};
+
+        Config config = new JavaMapConfig(beanDescriptions);
+        Context context = new ApplicationContext(config);
+
+        TestBean bean
+                = (TestBean) context.getBean("testBean");
+
+        assertEquals("initializedByPostConstruct" , bean.initValue);
+    }
 
     static class TestBean {
+        public String initValue;
+        public void init(){
+            initValue = "initialized";
+        }
+        @MyPostConstruct
+        public void create(){
+            initValue = "initializedByPostConstruct";
+        }
+
+        @Benchmark //sout time method takes
+        public String methodToBenchmark(String string){
+            // reverse string;
+            return string;
+        }
     }
 
     static class TestBeanWithConstructor {
