@@ -1,5 +1,6 @@
 package ua.rd.ioc;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.*;
@@ -272,6 +273,7 @@ public class ApplicationContextTest {
         assertNotNull(bean);
         assertNotSame(bean.testInterface, bean.testInterface1);
     }
+//    @Ignore
     @Test
     public void getBeanCallInitMethod() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
@@ -292,6 +294,7 @@ public class ApplicationContextTest {
 
        assertSame("initialized", bean.initValue());
     }
+//    @Ignore
     @Test
     public void getBeanPostConstructAnnotatedMethod() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
@@ -312,7 +315,7 @@ public class ApplicationContextTest {
 
         assertSame("initializedPostConstruct", bean.postConstructValue());
     }
-
+//    @Ignore
     @Test
     public void getBeanPostConstructAnnotatedMethodBeforeInitMethod() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
