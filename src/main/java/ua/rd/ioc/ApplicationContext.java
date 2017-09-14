@@ -1,9 +1,7 @@
 package ua.rd.ioc;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.*;
 import java.util.*;
 
 public class ApplicationContext implements Context {
@@ -41,13 +39,62 @@ public class ApplicationContext implements Context {
         Object bean = createNewBeanInstance(beanDefinition);
         callPostConstructAnnotatedMethod(bean);
         callInitMethod(bean);
-        bean = createBenchmarkProxy(bean);
+        if(checkBeanMethodsAnnotatedWithBenchmarkProxy(bean)) {
+            bean = createBenchmarkProxy(bean);
+        }
         return bean;
     }
 
-    private Object createBenchmarkProxy(Object bean) {
-        return Proxy.newProxyInstance();
+    private boolean checkBeanMethodsAnnotatedWithBenchmarkProxy(Object bean) {
+        Method [] methods = bean.getClass().getMethods();
+
+        return Arrays.stream(methods).anyMatch(method -> method.isAnnotationPresent(Benchmark.class)
+                && checkBenchmarkAnnotationIsActive(method));
     }
+
+    private boolean checkBenchmarkAnnotationIsActive(Method method) {
+        Benchmark benchmark = method.getAnnotation(Benchmark.class);
+        return benchmark.enabled();
+    }
+
+    private Object createBenchmarkProxy(Object bean) {
+        Class<?> beanType = bean.getClass();
+        return Proxy.newProxyInstance(beanType.getClassLoader(),
+                beanType.getInterfaces(),
+                (proxy, method, args) -> {
+                    Method methodImplemented =  bean.getClass()
+                            .getMethod(method.getName(), method.getParameterTypes());
+                    if(methodImplemented.isAnnotationPresent(Benchmark.class)
+                            && checkBenchmarkAnnotationIsActive(methodImplemented)
+                            ){
+                        Long start = System.currentTimeMillis();
+                        Object result = method.invoke(bean, args);
+                        Long stop = System.currentTimeMillis();
+                        System.out.println("Duration: " + (stop-start));
+                        return result;
+                    } else{
+                        return method.invoke(bean, args);
+                    }
+                });
+    }
+//    private Object createBenchmarkProxy(Object bean) {
+//        Class<?> beanType = bean.getClass();
+//        MethodInterceptor handler = new MethodInterceptor() {
+//            @Override
+//            public Object intercept(Object o, Method method, Object[] args, MethodProxy methodProxy) throws Throwable {
+//                if(method.isAnnotationPresent(Benchmark.class)){
+//                        Long start = System.currentTimeMillis();
+//                        Object result = method.invoke(bean, args);
+//                        Long stop = System.currentTimeMillis();
+//                        System.out.println("Duration: " + (stop-start));
+//                        return result;
+//                    } else{
+//                        return method.invoke(bean, args);
+//                    }
+//            }
+//        };
+//        return Enhancer.create(beanType, handler);
+//    }
 
     private void callPostConstructAnnotatedMethod(Object bean) {
         Method [] methods = bean.getClass().getMethods();

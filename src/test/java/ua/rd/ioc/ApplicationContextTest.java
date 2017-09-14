@@ -1,11 +1,8 @@
 package ua.rd.ioc;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -113,7 +110,7 @@ public class ApplicationContextTest {
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
-        TestBean bean = (TestBean) context.getBean(beanName);
+        TestInterface bean = (TestInterface) context.getBean(beanName);
 
         assertNotNull(bean);
     }
@@ -140,8 +137,8 @@ public class ApplicationContextTest {
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
-        TestBean bean1 = (TestBean) context.getBean(beanName1);
-        TestBean bean2 = (TestBean) context.getBean(beanName2);
+        TestInterface bean1 = (TestInterface) context.getBean(beanName1);
+        TestInterface bean2 = (TestInterface) context.getBean(beanName2);
 
         assertNotSame(bean1, bean2);
     }
@@ -163,8 +160,8 @@ public class ApplicationContextTest {
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
-        TestBean bean1 = (TestBean) context.getBean(beanName);
-        TestBean bean2 = (TestBean) context.getBean(beanName);
+        TestInterface bean1 = (TestInterface) context.getBean(beanName);
+        TestInterface bean2 = (TestInterface) context.getBean(beanName);
 
         assertSame(bean1, bean2);
     }
@@ -186,8 +183,8 @@ public class ApplicationContextTest {
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
-        TestBean bean1 = (TestBean) context.getBean(beanName);
-        TestBean bean2 = (TestBean) context.getBean(beanName);
+        TestInterface bean1 = (TestInterface)context.getBean(beanName);
+        TestInterface bean2 = (TestInterface) context.getBean(beanName);
 
         assertNotSame(bean1, bean2);
     }
@@ -196,7 +193,7 @@ public class ApplicationContextTest {
     public void getBeanWithOneDependedBean() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
                 new HashMap<String, Map<String, Object>>() {{
-                    put("testBean",
+                    put("testInterface",
                             new HashMap<String, Object>() {{
                                 put("type", TestBean.class);
                                 put("isPrototype", false);
@@ -224,7 +221,7 @@ public class ApplicationContextTest {
     public void getBeanWithSeveralDependedBeansIsSingleton() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
                 new HashMap<String, Map<String, Object>>() {{
-                    put("testBean",
+                    put("testInterface",
                             new HashMap<String, Object>() {{
                                 put("type", TestBean.class);
                                 put("isPrototype", false);
@@ -245,14 +242,14 @@ public class ApplicationContextTest {
                 = (TestBeanWithConstructorTwoParams) context.getBean("testBeanWithConstructorTwoParams");
 
         assertNotNull(bean);
-        assertSame(bean.testBean1, bean.testBean2);
+        assertSame(bean.testInterface, bean.testInterface1);
     }
 
     @Test
     public void getBeanWithSeveralDependedBeansIsPrototype() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
                 new HashMap<String, Map<String, Object>>() {{
-                    put("testBean",
+                    put("testInterface",
                             new HashMap<String, Object>() {{
                                 put("type", TestBean.class);
                                 put("isPrototype", true);
@@ -273,13 +270,13 @@ public class ApplicationContextTest {
                 = (TestBeanWithConstructorTwoParams) context.getBean("testBeanWithConstructorTwoParams");
 
         assertNotNull(bean);
-        assertNotSame(bean.testBean1, bean.testBean2);
+        assertNotSame(bean.testInterface, bean.testInterface1);
     }
     @Test
     public void getBeanCallInitMethod() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
                 new HashMap<String, Map<String, Object>>() {{
-                    put("testBean",
+                    put("testInterface",
                             new HashMap<String, Object>() {{
                                 put("type", TestBean.class);
                                 put("isPrototype", true);
@@ -290,16 +287,16 @@ public class ApplicationContextTest {
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
-        TestBean bean
-                = (TestBean) context.getBean("testBean");
+        TestInterface bean
+                = (TestInterface) context.getBean("testInterface");
 
-        assertEquals("initialized" , bean.initValue);
+       assertSame("initialized", bean.initValue());
     }
     @Test
     public void getBeanPostConstructAnnotatedMethod() throws Exception {
         Map<String, Map<String, Object>> beanDescriptions =
                 new HashMap<String, Map<String, Object>>() {{
-                    put("testBean",
+                    put("testInterface",
                             new HashMap<String, Object>() {{
                                 put("type", TestBean.class);
                                 put("isPrototype", true);
@@ -310,45 +307,94 @@ public class ApplicationContextTest {
         Config config = new JavaMapConfig(beanDescriptions);
         Context context = new ApplicationContext(config);
 
-        TestBean bean
-                = (TestBean) context.getBean("testBean");
+        TestInterface bean
+                = (TestInterface) context.getBean("testInterface");
 
-        assertEquals("initializedByPostConstruct" , bean.initValue);
+        assertSame("initializedPostConstruct", bean.postConstructValue());
     }
 
-    static class TestBean {
+    @Test
+    public void getBeanPostConstructAnnotatedMethodBeforeInitMethod() throws Exception {
+        Map<String, Map<String, Object>> beanDescriptions =
+                new HashMap<String, Map<String, Object>>() {{
+                    put("testInterface",
+                            new HashMap<String, Object>() {{
+                                put("type", TestBean.class);
+                                put("isPrototype", true);
+                            }}
+                    );
+                }};
+
+        Config config = new JavaMapConfig(beanDescriptions);
+        Context context = new ApplicationContext(config);
+
+        TestInterface bean
+                = (TestInterface) context.getBean("testInterface");
+        assertSame("initializedPostConstruct" , bean.getItemFromOrder());
+    }
+
+    static class TestBean implements TestInterface {
         public String initValue;
+        public String postConstructValue;
+        Queue<String> order = new LinkedList<>();
+
         public void init(){
             initValue = "initialized";
+            order.add(initValue);
         }
+
+        @Override
+        public String initValue() {
+            return initValue;
+        }
+
         @MyPostConstruct
-        public void create(){
-            initValue = "initializedByPostConstruct";
+        public void postConstruct(){
+            postConstructValue = "initializedPostConstruct";
+            order.add(postConstructValue);
         }
 
-        @Benchmark //sout time method takes
+        @Override
+        public String postConstructValue() {
+            return postConstructValue;
+        }
+
+        @Benchmark
         public String methodToBenchmark(String string){
-            // reverse string;
-            return string;
+            return new StringBuilder(string).reverse().toString();
+        }
+
+        @Override
+        public String getItemFromOrder() {
+            return order.poll();
         }
     }
 
-    static class TestBeanWithConstructor {
-        public TestBeanWithConstructor(TestBean testBean) {
-            this.testBean = testBean;
+    static class TestBeanWithConstructor  {
+        public TestBeanWithConstructor(TestInterface testInterface) {
+            this.testInterface = testInterface;
         }
 
-        private final TestBean testBean;
+        private final TestInterface testInterface;
     }
 
-    static class TestBeanWithConstructorTwoParams {
-        public TestBeanWithConstructorTwoParams(TestBean testBean1, TestBean testBean2) {
-            this.testBean1 = testBean1;
-            this.testBean2 = testBean2;
+    static class TestBeanWithConstructorTwoParams  {
+        public TestBeanWithConstructorTwoParams(TestInterface testInterface, TestInterface testInterface1) {
+            this.testInterface = testInterface;
+            this.testInterface1 = testInterface1;
         }
 
-        public final TestBean testBean1;
-        public final TestBean testBean2;
+        public final TestInterface testInterface;
+        public final TestInterface testInterface1;
+    }
+
+    interface TestInterface {
+        void init();
+        String initValue();
+        void postConstruct();
+        String postConstructValue();
+        String methodToBenchmark(String string);
+        String getItemFromOrder();
     }
 
 }
